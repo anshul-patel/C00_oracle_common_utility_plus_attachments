@@ -1,0 +1,92 @@
+#!/bin/ksh
+###################################################################################################################################################
+# *---------------------------------- Arqiva -----------------------------------------------------------------------------------------------------*
+# *************************************************************************************************************************************************
+# * Type               : Unix Shell Script                                                                                                        *
+# * Script Name        : XXAQV_CONV_GENERIC_LOADER                                                                                                *
+# * Purpose            : Shell Script for Arqiva Generic File Loader Program.                                                                     *
+# * Company            : Cognizant Technology Solutions.                                                                                          *
+# *                                                                                                                                               *
+# * Change History                                                                                                                                *
+# * Version     Created By        Creation Date    Comments                                                                                       *
+# *-----------------------------------------------------------------------------------------------------------------------------------------------*
+# * 1.0         CTS               15/11/2019       Initial Version                                                                                *
+# *************************************************************************************************************************************************
+###################################################################################################################################################
+
+echo "*************************************************************** Start of Program ***********************************************************"
+CurrDir=`pwd`
+KEY_DIR=$HOME
+###################################################################################################################################################
+export PATH=$PATH:/usr/local/bin
+pdate=`date "+%m%d%y%H%M%S"`
+dot=\.
+params="$@"
+set $params 
+p_request_id=`echo $2 | sed -e 's/"//g' | cut -f2 -d=`
+p_userpass=`echo $3 | sed -e 's/"//g' | cut -f2 -d=`
+shift 8
+params1="$@"
+params2=`echo $params1 | sed -e 's/:/##/g'`    
+params3=`echo $params2 | sed -e 's/" "/:/g'`
+params4=`echo $params3 | sed -e 's/"//g'`
+params5=`echo $params4 | sed -e 's/"//g'`
+params6=`echo $params5 | sed -e 's/"//g'`
+saveIFS=$IFS
+IFS=:
+set -A job_params $params5
+IFS=$saveIFS
+###################################################################################################################################################
+filename=${job_params[0]}
+controlfilename=${job_params[1]}    #Data File Name
+modulename=${job_params[2]}         #Data Directory Name
+echo 'Standard Oracle parameters:'
+echo 'Request Id='$p_request_id
+
+
+echo 'Custom Parameters      :'
+echo '********************************************************************************************************************************************'
+echo 'File Names or Pattern  :'$filename
+echo 'Control File Name      :'$controlfilename
+echo 'File location          :'$modulename
+echo '********************************************************************************************************************************************'
+
+get_fcount(){
+             cd $XXAQV_TOP/$modulename
+             echo $filename
+             ls $filename > dlist.txt
+             dallcount=`wc -l dlist.txt|awk -F" " '{ print $1 }'` 
+             echo "data file count "$dallcount
+             fcount=$dallcount 
+}
+###################################################################################################################################################
+#  Main Block
+###################################################################################################################################################
+
+todaydt=$(date '+%m%d%y%H%M%S')
+echo 'Today date='$todaydt
+
+get_fcount
+if [ $dallcount -gt 0 ]; 
+then 
+    for data_file in $filename
+    do
+      ##--Comments--
+      echo 'File Name: '$data_file
+      echo 'Control File Name: '$controlfilename
+      echo 'File Location:  '$modulename
+
+      pdate=`date "+%m%d%y%H%M%S"`
+      sqlldr $p_userpass control=$XXAQV_TOP/bin/$controlfilename DATA=$data_file LOG=$XXAQV_TOP/log/$data_file$pdate.log BAD=$XXAQV_TOP/inbound/bad/$data_file$pdate.bad 
+
+      echo "************************************"
+      cat $XXAQV_TOP/log/$data_file$pdate.log
+      echo "************************************"
+      echo 'Archiving SQL Loader for '$data_file
+      mv $data_file $XXAQV_TOP/inbound/archive/$data_file$pdate.ARC
+    done
+else
+    echo Errors encountered in ftp
+    exit 1
+fi
+###################################################################################################################################################
